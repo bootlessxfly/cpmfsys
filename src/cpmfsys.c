@@ -255,6 +255,34 @@ int cpmDelete(char *name) {
 	return 0;
 }
 
+int cpmDeletePerm(char *name) {
+	uint8_t *block0 = malloc(BLOCK_SIZE);
+	int extent_index = -1;
+	blockRead(block0, 0);
+	extent_index = findExtentWithName(name, block0);
+	if (extent_index < 0) {
+		/*
+		 * File not found or bad name
+		 */
+		return -1;
+	}
+	DirStructType *dir = mkDirStruct(extent_index, block0);
+	dir->status = 0xe5;
+	strcpy(dir->name, "0");
+	strcpy(dir->extension, "0");
+	dir->BC = '0';
+	dir->RC = '0';
+	dir->XH = '0';
+	dir->XL = '0';
+	for (int i = 0; i < 16; i++) {
+		dir->blocks[i] = '0';
+	}
+	writeDirStruct(dir, extent_index, block0);
+	free(block0);
+	free(dir);
+	return 0;
+}
+
 int cpmRename(char *oldName, char * newName) {
 	char* fname = malloc(strlen(newName));
 	char* extName = malloc(strlen(newName));
