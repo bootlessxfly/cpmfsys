@@ -1,10 +1,14 @@
-//============================================================================
-// Name        : Hello-World.cpp
-// Author      : Christoph White
-// Version     :
-// Copyright   : Your copyright notice
-// Description : Hello World in C++, Ansi-style
-//============================================================================
+/*
+ ============================================================================
+ Name        : cpmfsys.c
+ Author      : Christoph White
+ Version     :
+ Copyright   :
+ Description : This was loosely based off of Dr. Qin's examples from class.
+ mkDirStruct, makeFreeList, findExtentByName, and the function prototypes
+ where based off Doctor Qin's example. Everything else was written by me.
+ ============================================================================
+ */
 
 #include <limits.h>
 #include <ctype.h>
@@ -14,6 +18,10 @@
 
 bool free_list[NUM_BLOCKS];
 
+/*
+ * Takes in a block and an index for an extent and reads
+ * in a DirStruct into memory
+ */
 DirStructType *mkDirStruct(int index,uint8_t *e) {
 	DirStructType *dir = malloc(sizeof(*dir));
 	uint8_t *dir_addr = e + index * EXTENT_SIZE;
@@ -25,7 +33,7 @@ DirStructType *mkDirStruct(int index,uint8_t *e) {
 		}
 		else {
 			dir->name[i - 1] = '\0';
-			// I could probably break here, but for now wont.
+			// I could probably break here, but I wont
 		}
 	}
 	dir->name[8] = '\0';
@@ -36,7 +44,7 @@ DirStructType *mkDirStruct(int index,uint8_t *e) {
 		}
 		else {
 			dir->extension[i - 9] = '\0';
-			// I could probably break here, but for now wont.
+			// I could probably break here, but I wont
 		}
 	}
 	dir->extension[3] = '\0';
@@ -50,6 +58,11 @@ DirStructType *mkDirStruct(int index,uint8_t *e) {
 	return dir;
 }
 
+/*
+ * Writes a directory struct back into memory. Takes in the struct,
+ * extent index, and block of data. Then loads dir into the block addres in memory.
+ * Once it is done, it writed to disk and repopulates the freelist array.
+ */
 void writeDirStruct(DirStructType *d, uint8_t index, uint8_t *e) {
 	uint8_t *dir_addr = e + index * EXTENT_SIZE;
 	dir_addr[0] = d->status;
@@ -83,6 +96,10 @@ void writeDirStruct(DirStructType *d, uint8_t index, uint8_t *e) {
 	makeFreeList();
 }
 
+/*
+ * simply reads the disk block0 into memory and looks at each extent to
+ * determine which blocks are used and marks those in free_list.
+ */
 void makeFreeList() {
 	uint8_t *block0 = malloc(BLOCK_SIZE);
 	/*
@@ -115,6 +132,9 @@ void makeFreeList() {
 
 }
 
+/*
+ * Prints out the current free_list, representing what blocks are free or used
+ */
 void printFreeList() {
 	int block_count = 0;
 	puts("FREE BLOCK LIST: (* means in-use");
@@ -133,6 +153,13 @@ void printFreeList() {
 	}
 }
 
+/*
+ * Determines if a name is legal or not. This method checks if a file name
+ * begins with an alphanumeric number and makes sure it contains no spaces.
+ * The length of the filename is checked else where as the extention and file name
+ * have different length requirements. This function does not check for a blank name,
+ * that is done elsewhere.
+ */
 bool checkLegalName(char *name) {
 	if (isalnum(name[0]) == 0 && strlen(name) > 0) {
 		return false;
@@ -144,6 +171,10 @@ bool checkLegalName(char *name) {
 	return true;
 }
 
+/*
+ * Splits the file name into an extent and a name. Checks the length of each, checks if it is legal
+ * and checks if the filename is blank. The extention is allowed to be blank
+ */
 int splitCheckName(char *name, char *fname, char *extName) {
 	bool checkNameLength = true;
 	int extention_index = 0;
@@ -173,6 +204,10 @@ int splitCheckName(char *name, char *fname, char *extName) {
 	for (int i = extention_index; i < 3; i++) {
 		extName[i] = '\0';
 	}
+	// File name should not be blank
+	if (strlen(fname) == 0) {
+		return -1;
+	}
 	if (strlen(fname) > 8) {
 		return -1;
 	}
@@ -183,9 +218,14 @@ int splitCheckName(char *name, char *fname, char *extName) {
 			|| checkLegalName(extName) == false) {
 		return -1;
 	}
+
 	return 0;
 }
 
+/*
+ * searchs each extent in block0 for a matching name. If no match is found,
+ * then -1 is returned. If a bad name is found, -1 is returned.
+ */
 int findExtentWithName(char *name, uint8_t *block0) {
 	char *fname = malloc(strlen(name));
 	char *extName = malloc(strlen(name));
@@ -211,6 +251,10 @@ int findExtentWithName(char *name, uint8_t *block0) {
 	return -1;
 }
 
+/*
+ * Reads in each extent of the super block and printes out information
+ * on each used extent
+ */
 void cpmDir() {
 	uint8_t *block0 = malloc(BLOCK_SIZE);
 	int block_number;
@@ -236,6 +280,11 @@ void cpmDir() {
 
 }
 
+/*
+ * Does a "soft" delete of a filename if the filename is found,
+ * returns 0 for sucess and -1 for failure.
+ * Sets the status to unused but does not physically delete the data
+ */
 int cpmDelete(char *name) {
 	uint8_t *block0 = malloc(BLOCK_SIZE);
 	int extent_index = -1;
@@ -255,6 +304,10 @@ int cpmDelete(char *name) {
 	return 0;
 }
 
+/*
+ * Permenently deletes the file by overwriting the extent with zero's.
+ * If no file is found, -1 is return. Else 0 is returned.
+ */
 int cpmDeletePerm(char *name) {
 	uint8_t *block0 = malloc(BLOCK_SIZE);
 	int extent_index = -1;
@@ -283,6 +336,10 @@ int cpmDeletePerm(char *name) {
 	return 0;
 }
 
+/*
+ * If a file is found, then it is renamed with
+ * newName
+ */
 int cpmRename(char *oldName, char * newName) {
 	char* fname = malloc(strlen(newName));
 	char* extName = malloc(strlen(newName));
